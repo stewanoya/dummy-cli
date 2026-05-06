@@ -88,29 +88,30 @@ Two wire formats are supported. Set `api_type` in the provider block — it defa
 
 ## CLAUDE.md Integration
 
-Add the following block to any project's `CLAUDE.md`. It instructs Claude Code when to delegate to `dummy` instead of consuming reasoning tokens on bulk I/O work.
+Add the following block to any project's `CLAUDE.md`. The rules use mandatory language ("STOP", "NEVER", "MUST") so Claude treats them as hard constraints rather than optional suggestions.
 
-Adjust the file-size thresholds and examples to match your project's patterns.
+Adjust the examples to match your project's file paths and patterns.
 
 ---
 
 ```markdown
 ## Cheap-Model Delegation (Token Budget)
 
-Use the `dummy` CLI to delegate bulk I/O tasks. Reserve Claude for reasoning.
+**Rule:** Claude reasons and edits. `dummy` reads and generates.
 
-**Rule:** Claude = reasoning and edits. dummy = reading and generating.
+The `dummy` CLI is always available. Use it to delegate bulk I/O to a cheap model so Claude's tokens are spent on reasoning, not reading files.
 
 ---
 
-### dummy read — bulk file reading
+### MANDATORY: Before reading any file, apply this check
 
-Call `dummy read` instead of reading files yourself when:
+**STOP and use `dummy read` if ANY of these are true:**
+- The task touches 3 or more files
+- Any single file is likely over 400 lines (source files, schemas, lockfiles, generated code)
+- The task requires surveying a module, package, or codebase before acting
+- The task is "do X across the whole repo" or "find all Y" — anything repo-wide
 
-- Any single file is longer than 400 lines
-- You would otherwise open 3 or more files for context
-- You need to summarize a module, package, or schema
-- You need to find relationships across files (imports, references, types)
+**NEVER open files with the Read tool to build context for a task. Use `dummy read` first, then only open the specific file you need to edit.**
 
 ```sh
 dummy read --paths <file1> [file2 ...] --question "<specific question>"
@@ -126,7 +127,7 @@ dummy read --paths src/auth/middleware.rs --question "What does this middleware 
 dummy read --paths src/models/user.rs src/models/order.rs src/db/schema.sql \
            --question "List all foreign key relationships and which structs map to which tables"
 
-# Check a config file you don't want to read manually
+# Check a config file without reading it directly
 dummy read --paths Cargo.toml --question "What version of reqwest is being used and what features are enabled?"
 
 # Survey a whole package before touching it
@@ -134,21 +135,17 @@ dummy read --paths src/payments/mod.rs src/payments/stripe.rs src/payments/webho
            --question "Summarize the payment flow end to end"
 ```
 
-Returns structured bullet points to stdout. Read that output instead of the files.
-
-Only read files directly when you need exact line numbers for an edit.
+The only time to use the Read tool directly is when you already know which specific lines you need to edit.
 
 ---
 
-### dummy write — boilerplate generation
+### MANDATORY: Before generating boilerplate, apply this check
 
-Call `dummy write` instead of generating repetitive code yourself when:
-
-- Writing test files (unit tests, integration tests, fixtures)
-- Creating config files (CI workflows, Dockerfiles, linting configs, env templates)
-- Writing docstrings or comments across multiple functions
-- Generating CRUD operations, API clients, or migration files
-- Any output that is structurally predictable given an example
+**STOP and use `dummy write` if ANY of these are true:**
+- The output is a new test file
+- The output is a config file (CI, Docker, linting, env template)
+- The output mirrors the structure of an existing file
+- The output is repetitive by nature (CRUD, migrations, API specs)
 
 ```sh
 dummy write --spec "<what to generate>" --context <reference-file> --target <output-path>
@@ -167,58 +164,37 @@ dummy write --spec "GitHub Actions workflow: run cargo test on push to main" \
             --context .github/workflows/lint.yml \
             --target .github/workflows/test.yml
 
-# Generate a Dockerfile from an existing similar one
-dummy write --spec "Dockerfile for a Rust web service, expose port 8080" \
-            --context services/api/Dockerfile \
-            --target services/worker/Dockerfile
-
-# Generate a database migration based on the schema
-dummy write --spec "SQL migration to add an index on orders.user_id and orders.created_at" \
-            --context migrations/001_init.sql \
-            --target migrations/004_order_indexes.sql
-
 # Scaffold a new module matching the project's patterns
 dummy write --spec "REST handler module for /api/v1/products — list, get, create, delete" \
             --context src/handlers/users.rs \
             --target src/handlers/products.rs
 ```
 
-Then review the output and make surgical edits. Do not regenerate — just fix what is wrong.
+Review the output and make surgical edits. Do not regenerate — just fix what is wrong.
 
 ---
 
-### dummy chat — documentation workflow
-
-After a long session, extract the conversation and delegate documentation updates:
+### Documentation updates after a session
 
 ```sh
-# Step 1: extract readable text from the session log
 dummy chat --input <session.jsonl> --output /tmp/chat.txt
-
-# Step 2: ask the cheap model what docs need updating
 dummy read --paths /tmp/chat.txt docs/CHANGELOG.md docs/ARCHITECTURE.md \
            --question "Based on this session, what exact changes should I make to these docs?"
-
-# Step 3: apply the suggested edits with the Edit tool
 ```
 
-Find session JSONL files at:
+Session logs:
 - Windows: `%APPDATA%\Claude\projects\<project-hash>\<session-id>.jsonl`
 - macOS/Linux: `~/.claude/projects/<project-hash>/<session-id>.jsonl`
 
 ---
 
-### When NOT to delegate
+### Exceptions — do NOT use `dummy` for:
 
-Do not call `dummy` for:
-
-- **Tasks under ~2000 tokens** — delegation overhead is not worth it for small reads
+- **Tasks under ~2000 tokens** — small single-file edits, quick lookups
 - **Architectural decisions** — which approach, which abstraction, which tradeoff
 - **Debugging** — root cause analysis, logic errors, subtle state bugs
 - **Security-sensitive code** — auth, crypto, input validation, permissions
 - **Anything requiring careful reasoning** — if it needs thought, it stays with Claude
-- **Edits to specific lines** — read the file directly when you need exact context for an edit
-- **One-off lookups** — `grep` or reading a small file is faster than a round-trip to the API
 ```
 
 ---
