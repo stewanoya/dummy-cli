@@ -111,7 +111,7 @@ The `dummy` CLI is always available. Use it to delegate bulk I/O to a cheap mode
 - The task requires surveying a module, package, or codebase before acting
 - The task is "do X across the whole repo" or "find all Y" — anything repo-wide
 
-**NEVER open files with the Read tool to build context for a task. Use `dummy read` first, then only open the specific file you need to edit.**
+**NEVER use the Read tool, Glob tool, or Explore subagent to build context for a task. These are all bulk I/O — dummy handles them. Use `dummy read` first, then only open the specific file you need to edit.**
 
 ```sh
 dummy read --paths <file1> [file2 ...] --question "<specific question>"
