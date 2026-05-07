@@ -147,6 +147,8 @@ The only time to use the Read tool directly is when you already know which speci
 - The output mirrors the structure of an existing file
 - The output is repetitive by nature (CRUD, migrations, API specs)
 
+**NEVER use the Write tool to generate boilerplate. Use `dummy write` first, then make surgical edits to fix what is wrong.**
+
 ```sh
 dummy write --spec "<what to generate>" --context <reference-file> --target <output-path>
 ```
@@ -174,7 +176,15 @@ Review the output and make surgical edits. Do not regenerate — just fix what i
 
 ---
 
-### Documentation updates after a session
+### MANDATORY: When wrapping up a session or when asked for a changelog/docs update
+
+**STOP and use `dummy chat` to extract content from the session log instead of writing docs yourself.**
+
+1. Ask the user to run the following to find the session log:
+   - Windows: `! ls "$env:APPDATA\Claude\projects\"`
+   - macOS/Linux: `! ls ~/.claude/projects/`
+2. Use the most recently modified project folder and the latest `.jsonl` file inside it.
+3. Run:
 
 ```sh
 dummy chat --input <session.jsonl> --output /tmp/chat.txt
@@ -182,9 +192,7 @@ dummy read --paths /tmp/chat.txt docs/CHANGELOG.md docs/ARCHITECTURE.md \
            --question "Based on this session, what exact changes should I make to these docs?"
 ```
 
-Session logs:
-- Windows: `%APPDATA%\Claude\projects\<project-hash>\<session-id>.jsonl`
-- macOS/Linux: `~/.claude/projects/<project-hash>/<session-id>.jsonl`
+Triggers: user says "update the docs", "add a changelog entry", "summarize what we did", or the session is wrapping up after a multi-step feature.
 
 ---
 
